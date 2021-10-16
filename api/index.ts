@@ -121,37 +121,32 @@ function createPath(
   extension: "png" | "svg" | "svgz",
   date: Date,
 ) {
-  let hours = (date.getUTCHours() + 9) % 24;
+  let hours = date.getUTCHours() % 24;
   const fixedDate = new Date(date);
   if (area === "SPAS") {
-    if (0 <= hours && hours < 3) {
-      fixedDate.setUTCDate(fixedDate.getUTCDate() - 1);
+    if (21 <= hours && hours < 3) {
+      if (hours >= 0) fixedDate.setUTCDate(fixedDate.getUTCDate() - 1);
       hours = 21;
     } else {
-      for (let i = 1; i < 8; i++) {
+      for (let i = 1; i < 7; i++) {
         if (i * 3 <= hours && hours < (i + 1) * 3) {
           hours = i * 3;
         }
       }
     }
   } else {
-    if (0 <= hours && hours < 3) {
-      fixedDate.setUTCDate(fixedDate.getUTCDate() - 1);
-      hours = 21;
+    if (18 <= hours) {
+      hours = 18;
     } else {
-      for (let i = 0; i < 4; i++) {
-        if (3 + i * 6 <= hours && hours < 3 + (i + 1) * 6) {
-          hours = i * 6 + 3;
+      for (let i = 0; i < 3; i++) {
+        if (i * 6 <= hours && hours < (i + 1) * 6) {
+          hours = i * 6;
         }
       }
     }
   }
-  fixedDate.setUTCHours(hours - 9);
+  fixedDate.setUTCHours(hours);
   fixedDate.setUTCMinutes(0);
-
-  if (fixedDate.getUTCHours() + 9 === 24) {
-    fixedDate.setUTCHours(fixedDate.getUTCHours() - (area === "ASAS" ? 6 : 3));
-  }
 
   return `https://www.data.jma.go.jp/fcd/yoho/data/wxchart/quick/${
     toUTCyyyyMM(fixedDate)
