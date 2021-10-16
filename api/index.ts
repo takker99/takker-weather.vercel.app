@@ -52,19 +52,28 @@ export default async (request: ServerRequest) => {
       headers: new Headers({ "Content-Type": "text/plain; charset=utf-8" }),
     });
   }
-  if (time !== "today") {
+  if (time !== "today" && time !== "yesterday" && !/^\d+daysago$/.test(time)) {
     return request.respond({
       status: 400,
-      body: 'Available filename is only "today"',
+      body: 'Available filename are ["today", "yesterday","/^\\d+daysago$/"]',
       headers: new Headers({ "Content-Type": "text/plain; charset=utf-8" }),
     });
   }
 
   const now = new Date();
+
+  if (time === "yesterday") {
+    now.setUTCDate(now.getUTCDate() - 1);
+  }
+  if (/^\d+daysago$/.test(time)) {
+    const back = parseInt(time.match(/(\d+)/)?.[1] ?? "0");
+    now.setUTCDate(now.getUTCDate() - back);
+  }
   let path = "";
   for (let i = 0; i < 3; i++) {
     path = createPath(area, extension, now);
     const res = await fetch(path);
+    console.log(`Check "${path}"...${res.ok ? "found" : "not found"}`);
     if (res.ok) break;
     path = "";
     now.setUTCHours(now.getUTCHours() - (area === "ASAS" ? 6 : 3));
