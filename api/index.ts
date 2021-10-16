@@ -121,7 +121,7 @@ function createPath(
   extension: "png" | "svg" | "svgz",
   date: Date,
 ) {
-  let hours = date.getUTCHours() + 9;
+  let hours = (date.getUTCHours() + 9) % 24;
   const fixedDate = new Date(date);
   if (area === "SPAS") {
     if (0 <= hours && hours < 3) {
