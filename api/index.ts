@@ -124,28 +124,10 @@ function createPath(
   let hours = date.getUTCHours();
   const fixedDate = new Date(date);
   if (area === "SPAS") {
-    if (21 <= hours || hours < 3) {
-      if (hours >= 0) fixedDate.setUTCDate(fixedDate.getUTCDate() - 1);
-      hours = 21;
-    } else {
-      for (let i = 1; i < 7; i++) {
-        if (i * 3 <= hours && hours < (i + 1) * 3) {
-          hours = i * 3;
-          break;
-        }
-      }
-    }
+    hours = (hours - hours % 3);
+    if (hours === 15) hours = 12;
   } else {
-    if (18 <= hours) {
-      hours = 18;
-    } else {
-      for (let i = 0; i < 3; i++) {
-        if (i * 6 <= hours && hours < (i + 1) * 6) {
-          hours = i * 6;
-          break;
-        }
-      }
-    }
+    hours = (hours - hours % 6);
   }
   fixedDate.setUTCHours(hours);
   fixedDate.setUTCMinutes(0);
