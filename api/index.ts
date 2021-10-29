@@ -1,9 +1,30 @@
-import { ServerRequest } from "https://deno.land/std@0.105.0/http/server.ts";
+import {
+  Response,
+  ServerRequest,
+} from "https://deno.land/std@0.105.0/http/server.ts";
 
 const jmaArchivedWeatherMapPattern =
   /\/jma\/weather-map\/archives\/(ASAS|SPAS)\/([^.]+)\.(svgz?|png)(?:|[#?].*)$/;
 const jmaArchivedWeatherMapShortPattern =
   /\/jma\/weather-map\/archives\/([^.]+)\.(svgz?|png)(?:|[#?].*)$/;
+const jmaForecastWeatherMapPattern =
+  /\/jma\/weather-map\/forecast\/(ASAS|SPAS)\/(24|48)\.png(?:|[#?].*)$/;
+const jmaForecastWeatherMapShortPattern =
+  /\/jma\/weather-map\/forecast\/(24|48)\.png(?:|[#?].*)$/;
+
+interface WeatherMapList {
+  /** 実況予報図のファイル名のリスト */ now: string[];
+  /** 48時間予報図のファイル名 */ ft24: string;
+  /** 48時間予報図のファイル名 */ ft48: string;
+}
+interface WeatherMapListResponse {
+  /** 日本周辺域のカラー天気図 */ near: WeatherMapList;
+  // deno-lint-ignore camelcase
+  /** 日本周辺域のモノクロ天気図 */ near_monochrome: WeatherMapList;
+  /** 日本周辺域のカラー天気図 */ asia: WeatherMapList;
+  // deno-lint-ignore camelcase
+  /** 日本周辺域のモノクロ天気図 */ asia_monochrome: WeatherMapList;
+}
 
 export default async (request: ServerRequest) => {
   console.log(`Access to "${request.url}"`);
@@ -14,6 +35,23 @@ export default async (request: ServerRequest) => {
       status: 200,
       body: `Hello, from Deno v${Deno.version.deno}!`,
     });
+  }
+
+  if (
+    jmaForecastWeatherMapPattern.test(request.url) ||
+    jmaForecastWeatherMapShortPattern.test(request.url)
+  ) {
+    try {
+      const res = await routeForecast(request.url);
+      request.respond(res);
+    } catch (e) {
+      if ("status" in e) {
+        request.respond(e as Response);
+      } else {
+        throw e;
+      }
+    }
+    return;
   }
 
   let matches = request.url.match(jmaArchivedWeatherMapPattern);
@@ -95,6 +133,61 @@ export default async (request: ServerRequest) => {
   });
 };
 
+async function routeForecast(url: string) {
+  let matches = url.match(jmaForecastWeatherMapPattern);
+  let area = "SPAS";
+  let time = 24;
+
+  if (!matches) {
+    matches = url.match(jmaForecastWeatherMapShortPattern);
+    if (!matches) {
+      throw {
+        status: 400,
+        body: "unvalid URL pattern",
+      };
+    }
+    time = parseInt(matches[1]);
+  } else {
+    area = matches[1];
+    time = parseInt(matches[2]);
+  }
+
+  if (!isArea(area)) {
+    throw {
+      status: 400,
+      body: 'Area must be "ASAS" or "SPAS"',
+    };
+  }
+  if (time !== 24 && time !== 48) {
+    throw {
+      status: 400,
+      body: 'Available filename are ["24", "48"]',
+    };
+  }
+
+  const basename = "https://www.jma.go.jp/bosai/weather_map/data/";
+  const res = await fetch(
+    `${basename}list.json`,
+  );
+  if (!res.ok) throw { status: res.status, body: await res.text() };
+  const { near, asia } = (await res.json()) as WeatherMapListResponse;
+  const path = `${basename}png/${
+    area === "SPAS"
+      ? time === 24 ? near.ft24 : near.ft48
+      : time === 24
+      ? asia.ft24
+      : asia.ft48
+  }`;
+
+  console.log(`Go to "${path}"`);
+  const headers = new Headers();
+  headers.set("location", path);
+  return {
+    status: 301,
+    headers,
+  };
+}
+
 function isArea(area: string): area is "ASAS" | "SPAS" {
   return area === "ASAS" || area === "SPAS";
 }
@@ -124,10 +217,10 @@ function createPath(
   let hours = date.getUTCHours();
   const fixedDate = new Date(date);
   if (area === "SPAS") {
-    hours = (hours - hours % 3);
+    hours = hours - hours % 3;
     if (hours === 15) hours = 12;
   } else {
-    hours = (hours - hours % 6);
+    hours = hours - hours % 6;
   }
   fixedDate.setUTCHours(hours);
   fixedDate.setUTCMinutes(0);
